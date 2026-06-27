@@ -185,7 +185,7 @@
         <div id="smooth-content">
             @if ($source === 'product')
                 <a href="{{ session('product_url', route('beranda')) }}"
-                    class="inline-flex items-center gap-2 text-gray-600 hover:text-black px-6 py-4 duration-200">
+                    class="inline-flex items-center gap-2 text-gray-600 hover:text-black px-6 py-6 duration-200">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                     </svg>
@@ -193,7 +193,7 @@
                 </a>
             @else
                 <a href="{{ route('user.cart') }}"
-                    class="inline-flex items-center gap-2 text-gray-600 hover:text-black px-6 py-4 duration-200">
+                    class="inline-flex items-center gap-2 text-gray-600 hover:text-black px-6 py-6 duration-200">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                     </svg>
