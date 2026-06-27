@@ -9,191 +9,246 @@
         @if ($cartItems->isEmpty())
             <p class="text-gray-500">Cart is still empty</p>
         @else
-            {{-- Header --}}
-            <div class="hidden md:grid grid-cols-4 w-full gap-4 items-center text-center font-bold mb-4">
-                <p>Name</p>
-                <p>Price</p>
-                <p>Total Price</p>
-                <p>Action</p>
-            </div>
-            {{-- Cart Items --}}
-            @foreach ($cartItems as $item)
-                <div class="flex md:flex-row flex-col gap-4 mb-4 p-4 items-center border rounded-md shadow-sm w-full"
-                    id="cart-item-{{ $item->id }}">
+            <form action="{{ route('checkout.select') }}" method="POST" id="checkout-form">
+                @csrf
+                {{-- Header --}}
+                <div class="hidden md:grid grid-cols-5 py-3 border-1 border-black bg-black text-white px-2 my-2">
+                    <div class="flex items-center gap-2">
+                        <input type="checkbox" id="select-all" class="w-4 h-4 cursor-pointer">
+                        <p>Pilih</p>
+                    </div>
+                    <p>Name</p>
+                    <p>Price</p>
+                    <p>Total Price</p>
+                    <p class="text-center">Action</p>
+                </div>
+                {{-- Cart Items --}}
+                @foreach ($cartItems as $item)
+                    <div class="flex md:flex-row flex-col gap-4 mb-4 p-4 items-center border border-black shadow-sm w-full"
+                            id="cart-item-{{ $item->id }}">
 
-                    {{-- Product Image --}}
-                    @if($item->product && $item->product->image)
-                        <a href="{{ route('product.show', ['id' => $item->product->id, 'slug' => $item->product->slug]) }}">
-                            <img src="{{ $item->product->image }}" alt="{{ $item->product->name }}"
-                                class="md:w-20 md:h-20 w-40 h-40 object-cover rounded">
-                        </a>
-                    @else
-                        <div class="w-20 h-20 bg-gray-200 rounded flex items-center justify-center">
-                            <span class="text-gray-400">No Image</span>
-                        </div>
-                    @endif
+                        {{-- Checkbox --}}
+                        <input type="checkbox" name="selected_items[]" value="{{ $item->id }}"
+                            class="item-checkbox w-5 h-5 cursor-pointer self-center" checked>
 
-                    {{-- Product Info --}}
-                    <div class="grid md:grid-cols-4 grid-cols-1 w-full gap-4 items-center">
-                        {{-- Name --}}
-                        <a
-                            href="{{ $item->product ? route('product.show', ['id' => $item->product->id, 'slug' => $item->product->slug]) : '#' }}">
-                            <div class="text-xl md:text-2xl">
-                                {{ $item->product->name ?? 'Product Not Found' }}
+                        {{-- Product Image --}}
+                        @if($item->product && $item->product->image)
+                            <a href="{{ route('product.show', ['id' => $item->product->id, 'slug' => $item->product->slug]) }}">
+                                <img src="{{ $item->product->image }}" alt="{{ $item->product->name }}"
+                                    class="md:w-20 md:h-20 w-40 h-40 object-cover rounded">
+                            </a>
+                        @else
+                            <div class="w-20 h-20 bg-gray-200 rounded flex items-center justify-center">
+                                <span class="text-gray-400">No Image</span>
                             </div>
-                        </a>
+                        @endif
 
-                        <div class="price-per-item" data-cart-id="{{ $item->id }}"
-                            data-base-price="{{ $item->product->price ?? 0 }}"
-                            data-additional-price="{{ $item->size?->pivot->additional_price ?? 0 }}">
-                            Rp{{ number_format(($item->product->price ?? 0) + ($item->size?->pivot->additional_price ?? 0), 2, ',', '.') }}
-                        </div>
-
-
-                        <div class="price text-sm md:ml-5" data-cart-id="{{ $item->id }}"
-                            data-base-price="{{ $item->product->price ?? 0 }}"
-                            data-additional-price="{{ $item->size?->pivot->additional_price ?? 0 }}">
-                            Subtotal:
-                            Rp{{ number_format((($item->product->price ?? 0) + ($item->size?->pivot->additional_price ?? 0)) * ($item->quantity ?? 1), 2, ',', '.') }}
-                        </div>
-
-
-                        {{-- Actions --}}
-                        <div class="border py-3 px-3 border-gray-400 cart-item" data-cart-id="{{ $item->id }}">
-                            {{-- Update Size --}}
-                            <div class="mt-2">
-                                <label class="text-gray-600 mr-2">Size:</label>
-                                <select name="size_id" data-cart-id="{{ $item->id }}"
-                                    class="border border-gray-600 text-gray-600 rounded px-2 py-1 text-sm update-size cursor-pointer">
-
-                                    @foreach($item->product?->sizes ?? [] as $size)
-                                        @php
-                                            $stock = $size->pivot->stock ?? 0;
-                                            $additionalPrice = $size->pivot->additional_price ?? 0;
-                                        @endphp
-                                        <option value="{{ $size->id }}" data-stock="{{ $stock }}"
-                                            data-additional-price="{{ $additionalPrice }}" {{ $item->size_id == $size->id ? 'selected' : '' }} {{ $stock <= 0 ? 'disabled' : '' }}>
-                                            {{ $size->code }} {{ $stock <= 0 ? '(Out of Stock)' : '' }}
-                                        </option>
-                                    @endforeach
-                                </select>
-
-                            </div>
-
-                            @php
-                                $initialStock = $item->size?->pivot->stock ?? 0;
-                            @endphp
-
-                            {{-- Update Quantity --}}
-                            <div class="mt-2 flex flex-col gap-1">
-                                <label class="text-gray-600">Quantity:</label>
-                                <div class="flex items-center justify-between">
-                                    <button
-                                        class="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50 decrease-qty cursor-pointer"
-                                        data-cart-id="{{ $item->id }}">
-                                        <i class="fas fa-minus text-gray-600 text-xs"></i>
-                                    </button>
-
-                                    <input id="quantity" type="number" value="{{ $item->quantity ?? 1 }}" min="1"
-                                        max="{{ $initialStock }}"
-                                        class="w-16 h-8 text-center text-gray-600 border border-gray-300 rounded-2xl quantity-input"
-                                        data-cart-id="{{ $item->id }}">
-
-                                    <button
-                                        class="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50 increase-qty cursor-pointer"
-                                        data-cart-id="{{ $item->id }}">
-                                        <i class="fas fa-plus text-gray-600 text-xs"></i>
-                                    </button>
+                        {{-- Product Info --}}
+                        <div class="grid md:grid-cols-4 grid-cols-1 w-full gap-4 items-center">
+                            {{-- Name --}}
+                            <a
+                                href="{{ $item->product ? route('product.show', ['id' => $item->product->id, 'slug' => $item->product->slug]) : '#' }}">
+                                <div class="text-xl md:text-2xl">
+                                    {{ $item->product->name ?? 'Product Not Found' }}
                                 </div>
-                                <span class="text-xs text-gray-500 max-label">
-                                    Max: {{ $initialStock }}
-                                </span>
+                            </a>
 
+                            <div class="price-per-item" data-cart-id="{{ $item->id }}"
+                                data-base-price="{{ $item->product->price ?? 0 }}"
+                                data-additional-price="{{ $item->size?->pivot->additional_price ?? 0 }}">
+                                Rp{{ number_format(($item->product->price ?? 0) + ($item->size?->pivot->additional_price ?? 0), 2, ',', '.') }}
                             </div>
 
-                            {{-- Delete Button --}}
-                            <div class="mt-3">
-                                <form action="{{ route('cart.destroy', $item->id) }}" method="POST" class="delete-form inline">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit"
+
+                            <div class="price text-sm md:ml-5" data-cart-id="{{ $item->id }}"
+                                data-base-price="{{ $item->product->price ?? 0 }}"
+                                data-additional-price="{{ $item->size?->pivot->additional_price ?? 0 }}">
+                                Subtotal:
+                                Rp{{ number_format((($item->product->price ?? 0) + ($item->size?->pivot->additional_price ?? 0)) * ($item->quantity ?? 1), 2, ',', '.') }}
+                            </div>
+
+
+                            {{-- Actions --}}
+                            <div class="border py-3 px-3 border-gray-400 cart-item" data-cart-id="{{ $item->id }}">
+                                {{-- Update Size --}}
+                                <div class="mt-2">
+                                    <label class="text-gray-600 mr-2">Size:</label>
+                                    <select name="size_id" data-cart-id="{{ $item->id }}"
+                                        class="border border-gray-600 text-gray-600 rounded px-2 py-1 text-sm update-size cursor-pointer">
+
+                                        @foreach($item->product?->sizes ?? [] as $size)
+                                            @php
+                                                $stock = $size->pivot->stock ?? 0;
+                                                $additionalPrice = $size->pivot->additional_price ?? 0;
+                                            @endphp
+                                            <option value="{{ $size->id }}" data-stock="{{ $stock }}"
+                                                data-additional-price="{{ $additionalPrice }}" {{ $item->size_id == $size->id ? 'selected' : '' }} {{ $stock <= 0 ? 'disabled' : '' }}>
+                                                {{ $size->code }} {{ $stock <= 0 ? '(Out of Stock)' : '' }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+
+                                </div>
+
+                                @php
+                                    $initialStock = $item->size?->pivot->stock ?? 0;
+                                @endphp
+
+                                {{-- Update Quantity --}}
+                                <div class="mt-2 flex flex-col gap-1">
+                                    <label class="text-gray-600">Quantity:</label>
+                                    <div class="flex items-center justify-between">
+                                        <button
+                                            class="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50 decrease-qty cursor-pointer"
+                                            data-cart-id="{{ $item->id }}">
+                                            <i class="fas fa-minus text-gray-600 text-xs"></i>
+                                        </button>
+
+                                        <input id="quantity-{{ $item->id }}" type="number" value="{{ $item->quantity ?? 1 }}"
+                                            min="1" max="{{ $initialStock }}"
+                                            class="w-16 h-8 text-center text-gray-600 border border-gray-300 rounded-2xl quantity-input"
+                                            data-cart-id="{{ $item->id }}">
+
+                                        <button
+                                            class="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50 increase-qty cursor-pointer"
+                                            data-cart-id="{{ $item->id }}">
+                                            <i class="fas fa-plus text-gray-600 text-xs"></i>
+                                        </button>
+                                    </div>
+                                    <span class="text-xs text-gray-500 max-label">
+                                        Max: {{ $initialStock }}
+                                    </span>
+
+                                </div>
+
+                                {{-- Delete Button --}}
+                                <div class="mt-3">
+                                    <button type="button" onclick="deleteItem('{{ route('cart.destroy', $item->id) }}')"
                                         class="flex gap-2 justify-center items-center text-sm cursor-pointer border rounded-sm w-full py-2 bg-black text-white hover:bg-white hover:text-black">
                                         Delete
                                     </button>
-                                </form>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            @endforeach
+                @endforeach
 
-            <!-- Total -->
-            <div class="mt-6 p-4 border-t border-gray-200">
-                <div class="text-xl mb-4">
-                    Total: <span id="cart-total" class="text-gray-600">
-                        Rp{{ number_format($cartItems->sum(function ($item) {
+                <!-- Total -->
+                <div class="mt-6 p-4 border-t border-gray-200">
+                    <div class="text-xl mb-4">
+                        Total: <span id="cart-total" class="text-gray-600">
+                            Rp{{ number_format($cartItems->sum(function ($item) {
                 $qty = intval($item->quantity);
                 if ($qty < 1)
                     $qty = 1;
                 return (($item->product->price ?? 0) + ($item->size?->pivot->additional_price ?? 0)) * $qty;
             }), 2, ',', '.') }} </span>
-                </div>
+                    </div>
 
-                <div class="flex gap-4 mt-6 justify-between">
-                    @if (Auth::check())
-                        {{-- Jika sudah login → ke beranda --}}
-                        <a href="{{ route('beranda') }}"
-                            class="group inline-flex items-center gap-2 hover:text-black text-gray-600! px-6 py-2 border-b-white border-b-1 hover:border-b hover:border-gray-600 duration-200">
+                    <div class="flex gap-4 mt-6 justify-between">
+                        @if (Auth::check())
+                            {{-- Jika sudah login → ke beranda --}}
+                            <a href="{{ route('beranda') }}"
+                                class="group inline-flex items-center gap-2 hover:text-black text-gray-600! px-6 py-2 border-b-white border-b-1 hover:border-b hover:border-gray-600 duration-200">
 
-                            <svg class="w-5 h-5 transform transition-all duration-300 -translate-x-2 group-hover:translate-x-0"
-                                fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                            </svg>
+                                <svg class="w-5 h-5 transform transition-all duration-300 -translate-x-2 group-hover:translate-x-0"
+                                    fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                                </svg>
 
-                            Continue Shopping
-                        </a>
+                                Continue Shopping
+                            </a>
 
-                    @else
-                        {{-- Jika belum login → ke welcome --}}
-                        <a href="{{ route('welcome') }}"
-                            class="group inline-flex items-center gap-2 hover:text-black text-gray-600! px-6 py-2 border-b-white border-b-1 hover:border-b hover:border-gray-600 duration-200">
+                        @else
+                            {{-- Jika belum login → ke welcome --}}
+                            <a href="{{ route('welcome') }}"
+                                class="group inline-flex items-center gap-2 hover:text-black text-gray-600! px-6 py-2 border-b-white border-b-1 hover:border-b hover:border-gray-600 duration-200">
 
-                            <svg class="w-5 h-5 transform transition-all duration-300 -translate-x-2 group-hover:translate-x-0"
-                                fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                            </svg>
+                                <svg class="w-5 h-5 transform transition-all duration-300 -translate-x-2 group-hover:translate-x-0"
+                                    fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                                </svg>
 
-                            Continue Shopping
-                        </a>
-                    @endif
-                    <form action="{{ route('checkout') }}" method="GET">
-                        <button type="submit"
+                                Continue Shopping
+                            </a>
+                        @endif
+                        <button type="submit" id="checkout-btn"
                             class="inline-block bg-black text-white px-6 py-2 rounded hover:bg-white hover:border hover:text-black focus:bg-white border-1 focus:text-black focus:border focus:border-black cursor-pointer text-sm">
                             Proceed to Checkout
+                            <span id="selected-count">{{ $cartItems->count() }}</span>
                         </button>
-                    </form>
 
-                </div>
-            </div>
+                    </div>
+            </form>
         @endif
     </div>
 
     <style>
-        #quantity {
+        .quantity-input {
             -moz-appearance: textfield;
         }
 
-        #quantity::-webkit-outer-spin-button,
-        #quantity::-webkit-inner-spin-button {
+        .quantity-input::-webkit-outer-spin-button,
+        .quantity-input::-webkit-inner-spin-button {
             -webkit-appearance: none;
             margin: 0;
+        }
+
+        .item-checkbox,
+        #select-all {
+            appearance: none;
+            -webkit-appearance: none;
+            width: 1.25rem;
+            height: 1.25rem;
+            background-color: white;
+            border: 1.5px solid #9ca3af;
+            /* abu-abu, sesuaikan */
+            border-radius: 0.25rem;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .item-checkbox:checked,
+        #select-all:checked {
+            background-color: white;
+            border-color: black;
+        }
+
+        .item-checkbox:checked::after,
+        #select-all:checked::after {
+            content: '';
+            position: absolute;
+            left: 5px;
+            top: 1px;
+            width: 6px;
+            height: 11px;
+            border: solid black;
+            border-width: 0 2px 2px 0;
+            transform: rotate(45deg);
         }
     </style>
 
     <script>
+        function deleteItem(url) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = url;
+            form.innerHTML = `
+                                <input type="hidden" name="_token" value="${document.querySelector('meta[name="csrf-token"]').content}">
+                                <input type="hidden" name="_method" value="DELETE">
+                            `;
+            document.body.appendChild(form);
+            form.submit();
+        }
+
         document.addEventListener('DOMContentLoaded', function () {
+
+            const selectAll = document.getElementById('select-all');
+            const checkboxes = document.querySelectorAll('.item-checkbox');
+            const checkoutBtn = document.getElementById('checkout-btn');
+            const selectedCount = document.getElementById('selected-count');
 
             /* =========================
                SUBTOTAL & TOTAL
@@ -208,7 +263,10 @@
 
                 const subtotal = (base + additional) * quantity;
                 subtotalEl.textContent = `Subtotal: Rp${Math.round(subtotal).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-                updateCartTotal();
+
+                // FIX #1: Ganti updateCartTotal() → updateCheckoutState()
+                // agar total hanya dihitung dari item yang dicentang
+                updateCheckoutState();
             }
 
             function updatePricePerItem(cartId, additional) {
@@ -218,23 +276,6 @@
                 const base = parseFloat(el.dataset.basePrice) || 0;
                 el.dataset.additionalPrice = additional;
                 el.textContent = `Rp${Math.round(base + additional).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-            }
-
-            function updateCartTotal() {
-                let total = 0;
-
-                document.querySelectorAll('.price').forEach(el => {
-                    const cartId = el.dataset.cartId;
-                    const base = parseFloat(el.dataset.basePrice) || 0;
-                    const additional = parseFloat(el.dataset.additionalPrice) || 0;
-                    const input = document.querySelector(`.quantity-input[data-cart-id="${cartId}"]`);
-                    const qty = input ? parseInt(input.value) || 1 : 1;
-
-                    total += (base + additional) * qty;
-                });
-
-                const totalEl = document.getElementById('cart-total');
-                if (totalEl) totalEl.textContent = `Rp${Math.round(total).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
             }
 
             /* =========================
@@ -256,8 +297,10 @@
 
                 const decreaseBtn = document.querySelector(`.decrease-qty[data-cart-id="${cartId}"]`);
                 const increaseBtn = document.querySelector(`.increase-qty[data-cart-id="${cartId}"]`);
-                if (decreaseBtn) decreaseBtn.disabled = (newQty <= 1);
-                if (increaseBtn) increaseBtn.disabled = (newQty >= max);
+
+                // FIX #2: Gunakan parseInt() agar tidak ada perbandingan string vs number
+                if (decreaseBtn) decreaseBtn.disabled = (parseInt(input.value) <= 1);
+                if (increaseBtn) increaseBtn.disabled = (parseInt(input.value) >= parseInt(input.max));
 
                 fetch(`/cart/${cartId}/update-quantity`, {
                     method: 'POST',
@@ -342,8 +385,10 @@
 
                 const decreaseBtn = document.querySelector(`.decrease-qty[data-cart-id="${cartId}"]`);
                 const increaseBtn = document.querySelector(`.increase-qty[data-cart-id="${cartId}"]`);
-                if (decreaseBtn) decreaseBtn.disabled = (input.value <= 1);
-                if (increaseBtn) increaseBtn.disabled = (input.value >= input.max);
+
+                // FIX #2: parseInt() konsisten
+                if (decreaseBtn) decreaseBtn.disabled = (parseInt(input.value) <= 1);
+                if (increaseBtn) increaseBtn.disabled = (parseInt(input.value) >= parseInt(input.max));
             });
 
             /* =========================
@@ -378,8 +423,10 @@
 
                     const decreaseBtn = document.querySelector(`.decrease-qty[data-cart-id="${cartId}"]`);
                     const increaseBtn = document.querySelector(`.increase-qty[data-cart-id="${cartId}"]`);
-                    if (decreaseBtn) decreaseBtn.disabled = (input.value <= 1);
-                    if (increaseBtn) increaseBtn.disabled = (input.value >= input.max);
+
+                    // FIX #2: parseInt() konsisten
+                    if (decreaseBtn) decreaseBtn.disabled = (parseInt(input.value) <= 1);
+                    if (increaseBtn) increaseBtn.disabled = (parseInt(input.value) >= parseInt(input.max));
 
                     fetch(`/cart/${cartId}/update-size`, {
                         method: 'POST',
@@ -391,7 +438,6 @@
                             size_id: option.value,
                             quantity: parseInt(input.value)
                         })
-
                     })
                         .then(res => res.json())
                         .then(data => {
@@ -407,9 +453,75 @@
             });
 
             /* =========================
-               INIT TOTAL
+            CHECKBOX BORDER
             ========================== */
-            updateCartTotal();
+            function updateItemBorder(checkbox) {
+                const cartItem = document.getElementById(`cart-item-${checkbox.value}`);
+                if (!cartItem) return;
+
+                if (checkbox.checked) {
+                    cartItem.classList.remove('border-gray-300');
+                    cartItem.classList.add('border-black');
+                } else {
+                    cartItem.classList.remove('border-black');
+                    cartItem.classList.add('border-gray-300');
+                }
+            }
+
+            /* =========================
+               CHECKBOX LOGIC
+            ========================== */
+
+            function updateCheckoutState() {
+                const checked = document.querySelectorAll('.item-checkbox:checked');
+                const count = checked.length;
+
+                selectedCount.textContent = count + ' item';
+                checkoutBtn.disabled = count === 0;
+                checkoutBtn.classList.toggle('opacity-50', count === 0);
+                checkoutBtn.classList.toggle('cursor-not-allowed', count === 0);
+
+                // Hitung total hanya dari item yang dicentang
+                let total = 0;
+                checked.forEach(cb => {
+                    const cartId = cb.value;
+                    const subtotalEl = document.querySelector(`.price[data-cart-id="${cartId}"]`);
+                    if (!subtotalEl) return;
+                    const base = parseFloat(subtotalEl.dataset.basePrice) || 0;
+                    const additional = parseFloat(subtotalEl.dataset.additionalPrice) || 0;
+                    const input = document.querySelector(`.quantity-input[data-cart-id="${cartId}"]`);
+                    const qty = input ? parseInt(input.value) || 1 : 1;
+                    total += (base + additional) * qty;
+                });
+
+                const totalEl = document.getElementById('cart-total');
+                if (totalEl) totalEl.textContent = `Rp${Math.round(total).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+                // Update select all state
+                selectAll.checked = count === checkboxes.length;
+                selectAll.indeterminate = count > 0 && count < checkboxes.length;
+            }
+
+            // Select All
+            selectAll?.addEventListener('change', function () {
+                checkboxes.forEach(cb => {
+                    cb.checked = this.checked;
+                    updateItemBorder(cb);
+                });
+                updateCheckoutState();
+            });
+
+            // Per item
+            checkboxes.forEach(cb => {
+                cb.addEventListener('change', function () {
+                    updateItemBorder(this);
+                    updateCheckoutState();
+                });
+            });
+
+            // Init
+            checkboxes.forEach(cb => updateItemBorder(cb));
+            updateCheckoutState();
 
         });
     </script>

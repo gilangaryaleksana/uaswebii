@@ -183,6 +183,23 @@
 <body>
     <div id="smooth-wrapper">
         <div id="smooth-content">
+            @if ($source === 'product')
+                <a href="{{ session('product_url', route('beranda')) }}"
+                    class="inline-flex items-center gap-2 text-gray-600 hover:text-black px-6 py-4 duration-200">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
+                    Back to Last Product
+                </a>
+            @else
+                <a href="{{ route('user.cart') }}"
+                    class="inline-flex items-center gap-2 text-gray-600 hover:text-black px-6 py-4 duration-200">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
+                    Back to Cart
+                </a>
+            @endif
             <div class="checkout-container container mx-auto p-6">
                 <form action="{{ route('checkout.process') }}" method="POST" class="space-y-4">
                     @csrf
@@ -212,11 +229,11 @@
                                 @php $total = 0; @endphp
                                 @foreach($cartItems as $item)
                                     @php
-                                        $price = $item->product->price ?? 0;
-                                        $additional = $item->additional_price ?? 0;
-                                        $qty = $item->quantity ?? 0;
-                                        $subtotal = ($price + $additional) * $qty;
-                                        $total += $subtotal;
+    $price = $item->product->price ?? 0;
+    $additional = $item->additional_price ?? 0;
+    $qty = $item->quantity ?? 0;
+    $subtotal = ($price + $additional) * $qty;
+    $total += $subtotal;
                                     @endphp
 
                                     <tr class="text-center">

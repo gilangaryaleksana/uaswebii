@@ -32,13 +32,7 @@ class CheckoutController extends Controller
     {
         $user = Auth::user();
 
-        $cartItems = Cart::with(['product', 'size'])
-            ->where('user_id', $user->id)
-            ->get();
-
-        if (session('order_source') === 'product') {
-            $cartItems = $this->getBuyNowItem();
-        }
+        $cartItems = $this->getCheckoutCartItems();
 
         if ($cartItems->isEmpty()) {
             return redirect()
@@ -49,10 +43,14 @@ class CheckoutController extends Controller
         foreach ($cartItems as $item) {
             $item->additional_price = 0;
 
-            if ($item->product_id && $item->size_id) {
+            // ✅ Ganti product_id → product->id (support stdClass dari getBuyNowItem)
+            $productId = $item->product->id ?? null;
+            $sizeId    = $item->size_id ?? null;
+
+            if ($productId && $sizeId) {
                 $pivot = DB::table('product_sizes')
-                    ->where('product_id', $item->product_id)
-                    ->where('size_id', $item->size_id)
+                    ->where('product_id', $productId)
+                    ->where('size_id', $sizeId)
                     ->first();
 
                 if ($pivot) {
@@ -61,7 +59,30 @@ class CheckoutController extends Controller
             }
         }
 
-        return view('v_user.v_checkout.app', compact('cartItems'));
+        $source = session('order_source') === 'product' ? 'product' : 'cart';
+        return view('v_user.v_checkout.app', compact('cartItems', 'source'));
+    }
+
+    public function selectItems(Request $request)
+    {
+        $request->validate([
+            'selected_items'   => 'required|array|min:1',
+            'selected_items.*' => 'exists:carts,id',
+        ]);
+
+        // Pastikan semua cart ID milik user yang login
+        $validIds = Cart::where('user_id', auth()->id())
+            ->whereIn('id', $request->selected_items)
+            ->pluck('id')
+            ->toArray();
+
+        if (empty($validIds)) {
+            return back()->with('error', 'Pilih minimal 1 produk untuk checkout.');
+        }
+
+        session(['selected_cart_ids' => $validIds]);
+
+        return redirect()->route('checkout');
     }
 
     public function processCheckout(Request $request)
@@ -76,9 +97,7 @@ class CheckoutController extends Controller
 
         $user = Auth::user();
 
-        $cartItems = session('order_source') === 'product'
-            ? $this->getBuyNowItem()
-            : Cart::with(['product', 'size'])->where('user_id', $user->id)->get();
+        $cartItems = $this->getCheckoutCartItems();
 
         if ($cartItems->isEmpty()) {
             return back()->with('error', 'Cart kosong');
@@ -93,86 +112,43 @@ class CheckoutController extends Controller
                 $total += $price * $item->quantity;
             }
 
-            $shippingCost = (int) $request->shipping_cost ?? 0;
+            $shippingCost = (int) ($request->shipping_cost ?? 0);
             $total += $shippingCost;
 
-            $existingPending = Order::where('user_id', $user->id)
-                ->where('status', 'pending')
-                ->latest()
-                ->first();
+            $order = Order::create([
+                'user_id'             => $user->id,
+                'total'               => $total,
+                'status'              => 'pending',
+                'first_name'          => $request->first_name,
+                'last_name'           => $request->last_name,
+                'email'               => $request->email,
+                'phone'               => $request->phone,
+                'address'             => $request->address,
+                'payment_method'      => 'midtrans',
+                'shipping_courier'    => $request->shipping_courier,
+                'shipping_service'    => $request->shipping_service,
+                'shipping_cost'       => $shippingCost,
+                'estimated_arrival'   => $request->estimated_arrival,
+                'last_payment_method' => $request->payment_method,
+            ]);
 
-            if ($existingPending && $existingPending->created_at->diffInMinutes(now()) < 30) {
-                $order = $existingPending;
-                $order->update([
-                    'total'               => $total,
-                    'shipping_cost'       => $shippingCost,
-                    'shipping_courier'    => $request->shipping_courier,
-                    'estimated_arrival' => $request->estimated_arrival,
-                    'shipping_service'    => $request->shipping_service,
-                    'last_payment_method' => $request->payment_method,
-                ]);
+        foreach ($cartItems as $item) {
+            $price = $this->getItemPrice($item);
+            OrderItem::create([
+                'order_id'   => $order->id,
+                'product_id' => $item->product->id,
+                'size_id'    => $item->size_id,
+                'quantity'   => $item->quantity,
+                'price'      => $price,
+            ]);
+        }
 
-                // Hapus order items lama dan buat ulang
-                OrderItem::where('order_id', $order->id)->delete();
-                foreach ($cartItems as $item) {
-                    $price = $this->getItemPrice($item);
-                    OrderItem::create([
-                        'order_id'   => $order->id,
-                        'product_id' => $item->product->id,
-                        'size_id'    => $item->size_id,
-                        'quantity'   => $item->quantity,
-                        'price'      => $price,
-                    ]);
-                }
-
-                if (session('order_source') !== 'product') {
-                    Cart::where('user_id', $user->id)->delete();
-                }
-
-                Session::forget(['order_source', 'product_id', 'size_id', 'quantity']);
-
-            } else {
-                $order = Order::create([
-                    'user_id'             => $user->id,
-                    'total'               => $total,
-                    'status'              => 'pending',
-                    'first_name'          => $request->first_name,
-                    'last_name'           => $request->last_name,
-                    'email'               => $request->email,
-                    'phone'               => $request->phone,
-                    'address'             => $request->address,
-                    'payment_method'      => 'midtrans',
-                    'shipping_courier'    => $request->shipping_courier,
-                    'shipping_service'    => $request->shipping_service,
-                    'shipping_cost'       => $shippingCost,
-                    'estimated_arrival' => $request->estimated_arrival,
-                    'last_payment_method' => $request->payment_method,
-                ]);
-
-                foreach ($cartItems as $item) {
-                    $price = $this->getItemPrice($item);
-                    OrderItem::create([
-                        'order_id'   => $order->id,
-                        'product_id' => $item->product->id,
-                        'size_id'    => $item->size_id,
-                        'quantity'   => $item->quantity,
-                        'price'      => $price,
-                    ]);
-                }
-
-                Payment::create([
-                    'order_id'       => $order->id,
-                    'payment_method' => 'midtrans',
-                    'payment_amount' => $total,
-                    'payment_status' => 'pending',
-                ]);
-
-                if (session('order_source') !== 'product') {
-                    Cart::where('user_id', $user->id)->delete();
-                }
-
-                Session::forget(['order_source', 'product_id', 'size_id', 'quantity']);
-            }
+        Payment::create([
+            'order_id'       => $order->id,
+            'payment_method' => 'midtrans',
+            'payment_amount' => $total,
+            'payment_status' => 'pending',
+        ]);
 
             // Build item details untuk Midtrans
             $itemDetails = [];
@@ -213,6 +189,9 @@ class CheckoutController extends Controller
 
             DB::commit();
 
+            $this->clearCheckedOutCart($user);
+            Session::forget(['order_source', 'product_id', 'size_id', 'quantity', 'selected_cart_ids']);
+
             return response()->json([
                 'snap_token' => $snapToken,
                 'order_id'   => $order->id,
@@ -224,65 +203,64 @@ class CheckoutController extends Controller
         }
     }
 
+    public function handleNotification(Request $request)
+    {
+        Config::$serverKey = config('midtrans.server_key');
+        Config::$isProduction = config('midtrans.is_production');
 
-public function handleNotification(Request $request)
-{
-    Config::$serverKey = config('midtrans.server_key');
-    Config::$isProduction = config('midtrans.is_production');
+        try {
+            $notification = new Notification();
+        } catch (\Throwable $e) {
+            Log::error('Midtrans notification invalid payload', [
+                'error'   => $e->getMessage(),
+                'payload' => $request->getContent(),
+            ]);
+            return response()->json(['message' => 'Invalid Midtrans notification payload'], 400);
+        }
 
-    try {
-        $notification = new Notification();
-    } catch (\Throwable $e) {
-        Log::error('Midtrans notification invalid payload', [
-            'error'   => $e->getMessage(),
-            'payload' => $request->getContent(),
+        $orderId           = $notification->order_id;
+        $transactionStatus = $notification->transaction_status;
+        $fraudStatus       = $notification->fraud_status;
+
+        preg_match('/(\d+)-\d+$/', $orderId, $matches);
+        $realOrderId = $matches[1] ?? $orderId;
+
+        $order = Order::with('orderItems')->find($realOrderId);
+
+        if (!$order) {
+            return response()->json(['message' => 'Order not found'], 404);
+        }
+
+        // Update payment dengan transaction_id dari Midtrans
+        Payment::where('order_id', $order->id)->update([
+            'transaction_id'     => $notification->transaction_id,
+            'payment_type'       => $notification->payment_type,
+            'transaction_status' => $notification->transaction_status,
+            'transaction_time'   => $notification->transaction_time,
+            'settlement_time'    => $notification->settlement_time ?? null,
+            'fraud_status'       => $notification->fraud_status ?? null,
+            'issuer'             => $notification->issuer ?? null,
+            'acquirer'           => $notification->acquirer ?? null,
+            'currency'           => $notification->currency ?? null,
+            'payment_status'     => $transactionStatus,
         ]);
-        return response()->json(['message' => 'Invalid Midtrans notification payload'], 400);
-    }
 
-    $orderId           = $notification->order_id;
-    $transactionStatus = $notification->transaction_status;
-    $fraudStatus       = $notification->fraud_status;
-
-    preg_match('/(\d+)-\d+$/', $orderId, $matches);
-    $realOrderId = $matches[1] ?? $orderId;
-
-    $order = Order::with('orderItems')->find($realOrderId);
-
-    if (!$order) {
-        return response()->json(['message' => 'Order not found'], 404);
-    }
-
-    // Update payment dengan transaction_id dari Midtrans
-    Payment::where('order_id', $order->id)->update([
-        'transaction_id'     => $notification->transaction_id,
-        'payment_type'       => $notification->payment_type,
-        'transaction_status' => $notification->transaction_status,
-        'transaction_time'   => $notification->transaction_time,
-        'settlement_time'    => $notification->settlement_time ?? null,
-        'fraud_status'       => $notification->fraud_status ?? null,
-        'issuer'             => $notification->issuer ?? null,
-        'acquirer'           => $notification->acquirer ?? null,
-        'currency'           => $notification->currency ?? null,
-        'payment_status'     => $transactionStatus,
-    ]);
-
-    if ($transactionStatus == 'capture') {
-        if ($fraudStatus == 'accept') {
+        if ($transactionStatus == 'capture') {
+            if ($fraudStatus == 'accept') {
+                $order->update(['status' => 'paid']);
+                $this->decrementStock($order);
+            }
+        } elseif ($transactionStatus == 'settlement') {
             $order->update(['status' => 'paid']);
             $this->decrementStock($order);
+        } elseif ($transactionStatus == 'pending') {
+            $order->update(['status' => 'pending']);
+        } elseif (in_array($transactionStatus, ['deny', 'expire', 'cancel'])) {
+            $order->update(['status' => 'cancelled']);
         }
-    } elseif ($transactionStatus == 'settlement') {
-        $order->update(['status' => 'paid']);
-        $this->decrementStock($order);
-    } elseif ($transactionStatus == 'pending') {
-        $order->update(['status' => 'pending']);
-    } elseif (in_array($transactionStatus, ['deny', 'expire', 'cancel'])) {
-        $order->update(['status' => 'cancelled']);
-    }
 
-    return response()->json(['message' => 'OK']);
-}
+        return response()->json(['message' => 'OK']);
+    }
 
     public function buyNow(Request $request)
     {
@@ -292,14 +270,13 @@ public function handleNotification(Request $request)
             'quantity'   => 'required|integer|min:1',
         ]);
 
-        // Buy Now = hapus cart lama
-        Cart::where('user_id', auth()->id())->delete();
-
-        Cart::create([
-            'user_id'    => auth()->id(),
-            'product_id' => $request->product_id,
-            'size_id'    => $request->size_id,
-            'quantity'   => $request->quantity,
+        // Simpan ke session, tidak perlu manipulasi cart
+        session([
+            'order_source' => 'product',
+            'product_id'   => $request->product_id,
+            'size_id'      => $request->size_id,
+            'quantity'     => $request->quantity,
+            'product_url'    => url()->previous(),
         ]);
 
         return redirect()->route('checkout');
@@ -503,11 +480,66 @@ public function handleNotification(Request $request)
         return view('v_user.v_order.repay', compact('order', 'snapToken'));
     }
 
+    /**
+     * Ambil cart items yang relevan untuk proses checkout saat ini.
+     *
+     * - Jika order_source == 'product' (flow "Buy Now"), ambil item buy-now dari session.
+     * - Jika ada selected_cart_ids di session (user mencentang sebagian item di halaman cart),
+     *   filter hanya item tersebut.
+     * - Jika tidak ada selected_cart_ids (fallback / flow lama), ambil semua cart milik user.
+     *
+     * Dipakai bersama oleh index() dan processCheckout() agar kedua method selalu
+     * konsisten dan tidak terulang bug "item yang tidak dicentang ikut ke-checkout".
+     */
+    private function getCheckoutCartItems()
+    {
+        if (session('order_source') === 'product') {
+            return $this->getBuyNowItem();
+        }
+
+        $selectedIds = session('selected_cart_ids');
+
+        $query = Cart::with(['product', 'size'])
+            ->where('user_id', Auth::id());
+
+        if ($selectedIds) {
+            $query->whereIn('id', $selectedIds);
+        }
+
+        return $query->get();
+    }
+
+    /**
+     * Hapus cart items yang baru saja berhasil di-checkout.
+     *
+     * - Flow "Buy Now" tidak punya cart row yang perlu dihapus di sini (sudah ditangani terpisah).
+     * - Jika ada selected_cart_ids, hapus HANYA item yang dipilih (bukan semua cart user).
+     * - Jika tidak ada selected_cart_ids (fallback / flow lama), hapus semua cart user.
+     */
+    private function clearCheckedOutCart($user)
+    {
+        if (session('order_source') === 'product') {
+            return;
+        }
+
+        $selectedIds = session('selected_cart_ids');
+
+        if ($selectedIds) {
+            Cart::where('user_id', $user->id)
+                ->whereIn('id', $selectedIds)
+                ->delete();
+        } else {
+            Cart::where('user_id', $user->id)->delete();
+        }
+
+        Session::forget('selected_cart_ids');
+    }
+
     private function getBuyNowItem()
     {
         $product  = Product::find(session('product_id'));
         $sizeId   = session('size_id');
-        $quantity = session('quantity');
+        $quantity = session('quantity') ?? 1;
 
         if (!$product) {
             return collect([]);

@@ -139,7 +139,10 @@ Route::middleware('auth')->group(function () {
 
 Route::middleware(['auth'])->group(function () {
     // Halaman checkout
+
     Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout');
+
+    Route::post('/checkout/select', [CheckoutController::class, 'selectItems'])->name('checkout.select');
 
     // Proses checkout
     Route::post('/checkout/process', [CheckoutController::class, 'processCheckout'])->name('checkout.process');
