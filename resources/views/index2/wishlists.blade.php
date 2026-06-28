@@ -1,7 +1,9 @@
 @extends('v_user.v_wishlists.app')
 
 @section('content-wishlists')
-    <div class="md:pt-[14rem] pt-4 px-5 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 container">
+    <div
+        class="md:pt-[14rem] pt-4 px-5 w-full flex-1 md:grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 container overflow-y-auto">
+
         @if ($items->isEmpty())
             <div class="flex flex-col gap-2 md:justify-normal md:items-baseline md:pt-0 justify-center items-center pt-4">
                 <h1 class="text-4xl font-sans select-none font-semibold font-sans">Your Wishlist</h1>

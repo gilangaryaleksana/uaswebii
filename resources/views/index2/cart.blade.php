@@ -1,10 +1,8 @@
 @extends('v_user.v_cart.app')
 
-@section('content')
-    <div
-        class="md:pt-[14rem] pt-4 px-4 md:pl-5 md:pr-0 flex flex-col gap-2 md:w-5xl w-full justify-center items-center md:items-start md:justify-start">
+@section('content-cart')
+    <div class="md:pt-[14rem] md:w-5xl pt-4 px-5 w-full flex-1 overflow-y-auto">
         <h2 class="text-2xl font-semibold mb-4">Shopping Cart</h2>
-
 
         @if ($cartItems->isEmpty())
             <p class="text-gray-500">Cart is still empty</p>
@@ -78,8 +76,8 @@
 
                                         @foreach($item->product?->sizes ?? [] as $size)
                                             @php
-                                                $stock = $size->pivot->stock ?? 0;
-                                                $additionalPrice = $size->pivot->additional_price ?? 0;
+            $stock = $size->pivot->stock ?? 0;
+            $additionalPrice = $size->pivot->additional_price ?? 0;
                                             @endphp
                                             <option value="{{ $size->id }}" data-stock="{{ $stock }}"
                                                 data-additional-price="{{ $additionalPrice }}" {{ $item->size_id == $size->id ? 'selected' : '' }} {{ $stock <= 0 ? 'disabled' : '' }}>
@@ -91,7 +89,7 @@
                                 </div>
 
                                 @php
-                                    $initialStock = $item->size?->pivot->stock ?? 0;
+        $initialStock = $item->size?->pivot->stock ?? 0;
                                 @endphp
 
                                 {{-- Update Quantity --}}
@@ -138,11 +136,11 @@
                     <div class="text-xl mb-4">
                         Total: <span id="cart-total" class="text-gray-600">
                             Rp{{ number_format($cartItems->sum(function ($item) {
-                $qty = intval($item->quantity);
-                if ($qty < 1)
-                    $qty = 1;
-                return (($item->product->price ?? 0) + ($item->size?->pivot->additional_price ?? 0)) * $qty;
-            }), 2, ',', '.') }} </span>
+        $qty = intval($item->quantity);
+        if ($qty < 1)
+            $qty = 1;
+        return (($item->product->price ?? 0) + ($item->size?->pivot->additional_price ?? 0)) * $qty;
+    }), 2, ',', '.') }} </span>
                     </div>
 
                     <div class="flex gap-4 mt-6 justify-between">

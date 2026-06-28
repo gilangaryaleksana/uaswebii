@@ -1,7 +1,7 @@
 @extends('v_user.v_order.app')
 
 @section('content-order')
-    <div class="md:pt-[14rem] md:w-5xl pt-4 px-5 w-full">
+    <div class="md:pt-[14rem] md:w-5xl pt-4 px-5 w-full flex-1 overflow-y-auto">
 
         @if(session('success'))
             <div class="bg-green-100 text-green-800 p-3 rounded mb-4">

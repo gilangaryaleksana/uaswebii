@@ -57,7 +57,7 @@ Route::post('/reset-password', [ResetPasswordController::class, 'reset'])->name(
 
 // User routes (AUTH)
 Route::middleware('auth')->group(function () {
-    Route::get('/beranda', function () {
+    Route::get('/home-page', function () {
         $products = Product::all();
         return view('v_beranda.app', compact('products'));
     })->name('beranda')->middleware('auth');

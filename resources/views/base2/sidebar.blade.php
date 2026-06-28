@@ -1,4 +1,4 @@
-<div class="w-3xs flex flex-col items-center justify-center md:min-h-screen h-auto">
+<div class="w-3xs flex flex-col items-center justify-center md:min-h-screen h-auto overflow-y-auto md:mt-0 mt-10">
     <div class="flex w-full flex-col gap-3 mt-10 pl-5">
         <div class="flex flex-col justify-start">
             <a href="{{ route('user.dashboard') }}"

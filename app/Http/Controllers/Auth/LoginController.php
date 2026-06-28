@@ -29,7 +29,7 @@ class LoginController extends Controller
         // LOGIN USER
         if (Auth::guard('web')->attempt($credentials, $remember)) {
             $request->session()->regenerate();
-            return redirect()->intended('/beranda')->with('success', 'Login berhasil!');
+            return redirect()->intended('/home-page')->with('success', 'Login berhasil!');
         }
 
         // LOGIN ADMIN

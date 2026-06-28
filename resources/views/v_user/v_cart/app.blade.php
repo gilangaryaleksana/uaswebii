@@ -8,9 +8,9 @@
     @include('base2.navbar')
     <div id="smooth-wrapper">
         <div id="smooth-content">
-            <div class="flex md:flex-row flex-col">
+            <div class="flex md:flex-row flex-col md:min-h-screen h-screen overflow-hidden">
                 @include('base2.sidebar')
-                @yield('content')
+                @yield('content-cart')
             </div>
         </div>
     </div>
