@@ -20,7 +20,6 @@ class OrderController extends Controller
 
         return view('index2.order', compact('orders'));
     }
-
     public function updateStatus(Request $request, Order $order)
     {
         $request->validate([
@@ -45,8 +44,6 @@ class OrderController extends Controller
 
         return back()->with('success', 'Status order berhasil diperbarui');
     }
-
-
     public function createFromCart()
     {
         $user = auth()->user();
@@ -95,7 +92,6 @@ class OrderController extends Controller
         return redirect()->route('user.order')
             ->with('success', 'Order berhasil dibuat, silakan lakukan pembayaran.');
     }
-
     public function cancel(Order $order)
     {
         if ($order->user_id !== auth()->id()) {
@@ -127,8 +123,6 @@ class OrderController extends Controller
 
         return back()->with('success', 'Order dibatalkan & stok dikembalikan');
     }
-
-
     public function show(Order $order)
     {
         if ($order->user_id !== auth()->id()) {
@@ -139,7 +133,6 @@ class OrderController extends Controller
 
         return view('v_user.v_order.detail', compact('order'));
     }
-
     public function sendPaymentEmail($orderId)
     {
         $order = Order::with('user')->findOrFail($orderId);
@@ -166,4 +159,18 @@ class OrderController extends Controller
         return back()->with('success', 'Instruksi pembayaran berhasil dikirim ke email.');
     }
 
+    public function markReceived($id)
+    {
+        $order = Order::where('id', $id)
+                    ->where('user_id', auth()->id())
+                    ->firstOrFail();
+
+        if ($order->status !== 'shipped') {
+            return back()->with('error', 'Order belum dikirim.');
+        }
+
+        $order->update(['status' => 'delivered']);
+
+        return back()->with('success', 'Pesanan dikonfirmasi diterima!');
+    }
 }

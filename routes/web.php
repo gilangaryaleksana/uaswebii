@@ -154,6 +154,8 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('/order/{id}/repay', [CheckoutController::class, 'repay'])->name('checkout.repay');
 
+    Route::patch('/orders/{id}/received', [OrderController::class, 'markReceived'])->name('orders.received');
+
     Route::post('/checkout/qris', [CheckoutController::class, 'createQris'])->name('checkout.qris');
 
     Route::post('/checkout/bca', [CheckoutController::class, 'createBcaVa'])->name('checkout.bca');
@@ -191,7 +193,6 @@ Route::middleware(['auth:admin'])->group(function () {
         [DashboardController::class, 'calendarEvents']
     )->name('admin.dashboard.calendar.events');
 
-
     Route::patch(
         '/admin/order/{order}/status',
         [DashboardController::class, 'updateOrderStatus']
@@ -199,7 +200,6 @@ Route::middleware(['auth:admin'])->group(function () {
 
     Route::put('/admin/orders/{order}/status', [OrderController::class, 'updateStatus'])
     ->name('admin.order.updateStatus');
-
 
     Route::post(
         '/admin/orders/{order}/send-payment-email',

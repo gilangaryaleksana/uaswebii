@@ -210,6 +210,22 @@
                     </button>
                 </form>
             @endif
+
+            @if ($order->status === 'shipped')
+                <div class="flex flex-col justify-center items-end gap-2">
+                    <p class="text-xs text-gray-500 text-right">
+                        Have you received your order? Click the button below to confirm.
+                    </p>
+                    <form action="{{ route('orders.received', $order->id) }}" method="POST">
+                        @csrf
+                        @method('PATCH')
+                        <button type="submit" onclick="return confirm('Order confirmation received?')"
+                            class="bg-black text-white! text-sm px-6 py-2 border border-black hover:bg-white hover:text-black! text-center cursor-pointer">
+                            Receive goods
+                        </button>
+                    </form>
+                </div>
+            @endif
         </div>
     </div>
 </div>
