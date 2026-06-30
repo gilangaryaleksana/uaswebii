@@ -62,7 +62,6 @@ Route::middleware('auth')->group(function () {
         return view('v_beranda.app', compact('products'));
     })->name('beranda')->middleware('auth');
 
-
     // Dashboard
     Route::get('/dashboard', [DashboardController::class, 'dashboard'])
         ->name('user.dashboard');
@@ -214,6 +213,12 @@ Route::middleware(['auth:admin'])->group(function () {
 
     Route::get('/invoice/{order}/preview', [InvoiceController::class, 'preview'])
     ->name('invoice.preview');
+
+    Route::get('/admin/dashboard/sales-report', [DashboardController::class, 'salesReport'])
+    ->name('admin.dashboard.salesReport');
+
+    Route::get('/admin/dashboard/sales-report/export', [DashboardController::class, 'exportSalesReport'])
+        ->name('admin.dashboard.salesReport.export');
 });
 
 

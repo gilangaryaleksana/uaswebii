@@ -13,6 +13,7 @@ use App\Models\User;
 use App\Models\Product;
 use App\Models\ProductSize;
 use Carbon\Carbon;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class DashboardController extends Controller
 {
@@ -498,5 +499,65 @@ class DashboardController extends Controller
     {
         $admin = Auth::guard('admin')->user();
         return view('payment.qrcode', compact('admin'));
+    }
+
+    public function salesReport(Request $request)
+    {
+        
+        $admin = Auth::guard('admin')->user();
+
+        $type = $request->get('type', 'monthly'); // daily, monthly, yearly
+        $date = $request->get('date', now()->format('Y-m-d'));
+        $month = $request->get('month', now()->format('Y-m'));
+        $year = $request->get('year', now()->format('Y'));
+
+        $query = Order::whereIn('status', ['paid', 'shipped', 'delivered'])
+            ->with('items.product'); // sesuaikan nama relasi di model Order kamu
+
+        if ($type === 'daily') {
+            $query->whereDate('created_at', $date);
+        } elseif ($type === 'monthly') {
+            $query->whereYear('created_at', substr($month, 0, 4))
+                ->whereMonth('created_at', substr($month, 5, 2));
+        } elseif ($type === 'yearly') {
+            $query->whereYear('created_at', $year);
+        }
+
+        $orders = $query->orderBy('created_at', 'desc')->get();
+        $totalRevenue = $orders->sum('total'); // sesuaikan nama kolom total di tabel orders
+
+        return view('v_admin.v_data.v_report.app', compact('admin', 'orders', 'totalRevenue', 'type', 'date', 'month', 'year'));
+    }
+
+    public function exportSalesReport(Request $request)
+    {
+
+        $admin = Auth::guard('admin')->user();
+
+        $type = $request->get('type', 'monthly');
+        $date = $request->get('date', now()->format('Y-m-d'));
+        $month = $request->get('month', now()->format('Y-m'));
+        $year = $request->get('year', now()->format('Y'));
+
+        $query = Order::whereIn('status', ['paid', 'shipped', 'delivered'])
+            ->with('items.product');
+
+        if ($type === 'daily') {
+            $query->whereDate('created_at', $date);
+            $periodLabel = 'Harian - ' . \Carbon\Carbon::parse($date)->translatedFormat('d F Y');
+        } elseif ($type === 'monthly') {
+            $query->whereYear('created_at', substr($month, 0, 4))
+                ->whereMonth('created_at', substr($month, 5, 2));
+            $periodLabel = 'Monthly - ' . \Carbon\Carbon::parse($month . '-01')->translatedFormat('F Y');
+        } else {
+            $query->whereYear('created_at', $year);
+            $periodLabel = 'Tahunan - ' . $year;
+        }
+
+        $orders = $query->orderBy('created_at', 'desc')->get();
+        $totalRevenue = $orders->sum('total');
+
+        $pdf = Pdf::loadView('v_admin.v_data.sales-report-pdf', compact('admin', 'orders', 'totalRevenue', 'periodLabel'));
+        return $pdf->download('laporan-penjualan-' . now()->format('Ymd-His') . '.pdf');
     }
 }

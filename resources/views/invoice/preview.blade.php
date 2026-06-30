@@ -226,10 +226,10 @@
                             {{ $item->quantity }}
                         </td>
                         <td style="border:1px solid #999; padding:6px; text-align:right;">
-                            ${{ number_format($price) }}
+                            Rp{{ number_format($price) }}
                         </td>
                         <td style="border:1px solid #999; padding:6px; text-align:right;">
-                            ${{ number_format($subtotal) }}
+                            Rp{{ number_format($subtotal) }}
                         </td>
                     </tr>
                 @endforeach

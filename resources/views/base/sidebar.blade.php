@@ -99,6 +99,12 @@ $orderActive = request()->routeIs('admin.dashboard.pendingOrder*');
       Invoice
     </a>
 
+    <a href="{{ route('admin.dashboard.salesReport') }}" class="mb-3 capitalize font-medium text-sm transition
+       {{ request()->routeIs('admin.dashboard.salesReport') ? 'active-link' : 'hover:text-teal-600' }}">
+      <i class="fad fa-chart-line text-xs mr-2"></i>
+      Laporan Penjualan
+    </a>
+
     <a href="#" class="mb-3 capitalize font-medium text-sm transition hover:text-teal-600">
       <i class="fad fa-folder-open text-xs mr-2"></i>
       File manager
