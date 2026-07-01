@@ -1,4 +1,4 @@
-#Adidas Store
+# Adidas Store
 
 Adidas-themed shoe e-commerce website, built using Laravel.
 
